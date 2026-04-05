@@ -9,7 +9,9 @@
 
 import Foundation
 
+/// Emits lightweight diagnostics for values recovered by safe decoding.
 public enum SafeDecodingDiagnostics {
+    /// Handles a single decoding issue emitted during safe decoding recovery.
     public typealias IssueHandler = (SafeDecodingIssue) -> Void
 
     private static let threadDictionaryKey = "SafeDecodingDiagnostics.issueHandler"
@@ -30,12 +32,24 @@ public enum SafeDecodingDiagnostics {
         Thread.current.threadDictionary[threadDictionaryKey] as? IssueHandlerBox
     }
 
+    /// Emits an issue through the current scoped handler, or the default printer.
+    ///
+    /// - Parameter issue: The issue to emit.
     public static func emit(_ issue: SafeDecodingIssue) {
         issueHandlerBox?.handler(issue) ?? defaultIssueHandler(issue)
     }
 
     /// Runs `operation` with a temporary issue handler scoped to the current thread.
+    ///
     /// The default placeholder handler remains in place for all other threads and once the scope exits.
+    /// Because the override is thread-scoped rather than task-scoped, work that hops to another thread
+    /// will use that thread's current handler instead.
+    ///
+    /// - Parameters:
+    ///   - handler: The temporary handler that receives emitted issues on the current thread.
+    ///   - operation: The operation to run while the handler override is active.
+    /// - Returns: The result produced by `operation`.
+    /// - Throws: Any error thrown by `operation`.
     public static func withIssueHandler<Result>(
         _ handler: @escaping IssueHandler,
         perform operation: () throws -> Result

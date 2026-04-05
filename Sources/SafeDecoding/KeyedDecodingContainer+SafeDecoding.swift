@@ -10,6 +10,13 @@
 import Foundation
 
 public extension KeyedDecodingContainer {
+    /// Decodes a `SafeDecodable` wrapper and supplies a `nil`-like default when the key is absent.
+    ///
+    /// - Parameters:
+    ///   - type: The wrapper type to decode.
+    ///   - key: The key to decode from.
+    /// - Returns: A decoded wrapper, or an empty wrapper when the key is missing.
+    /// - Throws: Any error thrown while decoding a present wrapped value.
     func decode<T>(
         _ type: SafeDecodable<T>.Type,
         forKey key: Key
