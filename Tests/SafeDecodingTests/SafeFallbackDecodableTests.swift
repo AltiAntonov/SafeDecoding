@@ -52,3 +52,28 @@ func missingFallbackBackedFieldUsesFallbackValue() throws {
 
     #expect(user.role == "Unknown")
 }
+
+@Test
+func nullFallbackBackedFieldUsesFallbackValue() throws {
+    let data = #"{"role":null}"#.data(using: .utf8)!
+
+    let user = try JSONDecoder().decode(User.self, from: data)
+
+    #expect(user.role == "Unknown")
+}
+
+@Test
+func nullFallbackBackedFieldEmitsDiagnosticForRole() throws {
+    let data = #"{"role":null}"#.data(using: .utf8)!
+    var issues: [SafeDecodingIssue] = []
+
+    let user = try SafeDecodingDiagnostics.withIssueHandler({ issue in
+        issues.append(issue)
+    }, perform: {
+        try JSONDecoder().decode(User.self, from: data)
+    })
+
+    #expect(user.role == "Unknown")
+    #expect(issues.count == 1)
+    #expect(issues[0].fieldPath == "role")
+}
