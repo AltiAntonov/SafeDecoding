@@ -27,23 +27,36 @@
 ## Features
 
 - `@SafeDecodable` for optional field failure isolation
+- `SafeDecodingFallbackProvider` for typed fallback values on required fields
+- `@SafeFallbackDecodable` for fallback-backed required-value decoding
 - missing safe fields decode to `nil`
 - broken safe fields do not fail the whole model
-- placeholder diagnostics for decode issues in `0.1.0`
+- broken fallback-backed fields emit placeholder diagnostics and use the provider value
+- placeholder diagnostics for decode issues in `0.1.0` and the unreleased `0.2.0`
 
 The current public API is intentionally centered on:
 
 - `SafeDecodable`
+- `SafeDecodingFallbackProvider`
+- `SafeFallbackDecodable`
 - `SafeDecodingDiagnostics`
 - `SafeDecodingIssue`
 
 ## Installation
 
-Add `SafeDecoding` to your Swift Package Manager dependencies:
+`0.2.0` is not tagged yet. If you want the typed fallback-backed API before release, depend on the release branch:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/AltiAntonov/SafeDecoding.git", from: "0.1.0")
+    .package(url: "https://github.com/AltiAntonov/SafeDecoding.git", branch: "release/0.2.0")
+]
+```
+
+Once `0.2.0` is tagged, switch back to a versioned dependency:
+
+```swift
+dependencies: [
+    .package(url: "https://github.com/AltiAntonov/SafeDecoding.git", from: "0.2.0")
 ]
 ```
 
@@ -63,13 +76,66 @@ Then add the product to your target:
 ```swift
 import SafeDecoding
 
+enum UnknownRoleFallback: SafeDecodingFallbackProvider {
+    static let fallbackValue = "unknown"
+}
+
 struct User: Decodable {
     let id: Int
     @SafeDecodable var name: String?
+    @SafeFallbackDecodable<UnknownRoleFallback> var role: String
 }
 ```
 
 If `name` is missing or malformed, decoding still succeeds and `name` becomes `nil`.
+If `role` is present but malformed, decoding still succeeds and `role` becomes `"unknown"`.
+
+For example, this dirty payload still decodes:
+
+```json
+{
+  "id": 7,
+  "name": 404,
+  "role": 42
+}
+```
+
+`name` falls back to `nil`, while `role` falls back to the typed provider value.
+
+## Typed Fallbacks
+
+Use `SafeDecodingFallbackProvider` when the field is required by your model shape but upstream data is noisy.
+
+```swift
+import SafeDecoding
+
+enum UnknownCountryFallback: SafeDecodingFallbackProvider {
+    static let fallbackValue = "ZZ"
+}
+
+struct Shipment: Decodable {
+    let id: String
+    @SafeFallbackDecodable<UnknownCountryFallback> var destinationCountryCode: String
+}
+```
+
+Dirty vendor payload:
+
+```json
+{
+  "id": "shp_4815",
+  "destinationCountryCode": 404
+}
+```
+
+Decoded result:
+
+```swift
+let shipment = try JSONDecoder().decode(Shipment.self, from: data)
+shipment.destinationCountryCode // "ZZ"
+```
+
+The fallback provider is explicit and typed, so the call site makes the recovery behavior visible in the model declaration instead of burying it in custom decoding code.
 
 ## When To Use
 
@@ -77,6 +143,7 @@ Use `SafeDecoding` when:
 
 - you consume third-party or drift-prone APIs
 - one broken field should not discard the whole payload
+- you want typed defaults for required fields without writing custom `init(from:)`
 - you want to stay in the `Codable` model
 
 ## Good Fits
@@ -84,6 +151,7 @@ Use `SafeDecoding` when:
 - third-party APIs with inconsistent optional field quality
 - apps that want to preserve valid model data instead of failing the whole decode
 - codebases that prefer a small wrapper-based entry point over manual parsing
+- models that need explicit fallback values such as `"unknown"`, `"ZZ"`, or sentinel enums
 - teams that want placeholder diagnostics today and richer reporting later
 
 ## Weaker Fits
@@ -91,21 +159,25 @@ Use `SafeDecoding` when:
 - strict backend contracts you fully control
 - schema validation workflows
 - rich reporting pipelines that need more than placeholder diagnostics
-- packages that need fallback values for non-optional fields today
+- cases where silent fallback values would hide contract breakage you should fail fast on
 
 ## Runtime Semantics
 
-- `@SafeDecodable` in `0.1.0` is scoped to optional-like wrapped values
+- `@SafeDecodable` is scoped to optional-like wrapped values
+- `@SafeFallbackDecodable` uses the decoded value when decoding succeeds
+- if a fallback-backed field is present but malformed, a placeholder diagnostic is emitted and the provider value is used
+- the `0.2.0` typed fallback API is additive and non-breaking relative to `0.1.0`
 - missing safe fields decode to `nil`
 - broken safe fields emit a placeholder diagnostic and fall back to `nil`
-- diagnostics are intentionally lightweight in `0.1.0`
+- diagnostics are intentionally lightweight in `0.1.0` and the unreleased `0.2.0`
 
 ## Documentation
 
-`README.md` is the primary package documentation for `0.1.0`.
+`README.md` is the primary package documentation for the unreleased `0.2.0` branch and remains accurate for `0.1.0` where features overlap.
 
 Swift Package Index metadata is configured in `.spi.yml` so the package page can reflect the current target and author metadata cleanly.
 
 ## Testing
 
 `0.1.0` ships with Swift Testing coverage for valid values, missing keys, broken values, and diagnostic capture.
+The unreleased `0.2.0` branch extends that coverage to typed fallback-backed decoding behavior.
