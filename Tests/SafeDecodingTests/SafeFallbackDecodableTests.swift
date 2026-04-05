@@ -18,3 +18,12 @@ func fallbackBackedFieldUsesDecodedValueWhenPresent() throws {
 
     #expect(user.role == "Admin")
 }
+
+@Test
+func brokenFallbackBackedFieldUsesFallbackValue() throws {
+    let data = #"{"role":42}"#.data(using: .utf8)!
+
+    let user = try JSONDecoder().decode(User.self, from: data)
+
+    #expect(user.role == "Unknown")
+}
