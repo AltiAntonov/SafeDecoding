@@ -72,6 +72,8 @@ func captureReturnsReportForBrokenOptionalField() throws {
     #expect(result.value.name == nil)
     #expect(result.report.issues.count == 1)
     #expect(result.report.issues[0].fieldPath == "name")
+    #expect(result.report.issues[0].errorDescription.contains("typeMismatch"))
+    #expect(result.report.issues[0].errorDescription.contains("name"))
 }
 
 @Test
@@ -85,6 +87,8 @@ func captureReturnsOneIssueForBrokenFallbackBackedField() throws {
     #expect(result.value.role == "Unknown")
     #expect(result.report.issues.count == 1)
     #expect(result.report.issues[0].fieldPath == "role")
+    #expect(result.report.issues[0].errorDescription.contains("typeMismatch"))
+    #expect(result.report.issues[0].errorDescription.contains("role"))
 }
 
 @Test
@@ -98,6 +102,7 @@ func captureReturnsIssuesInEmissionOrderForMixedWrappers() throws {
     #expect(result.value.name == nil)
     #expect(result.value.role == "Unknown")
     #expect(result.report.issues.map(\.fieldPath) == ["name", "role"])
+    #expect(result.report.issues.map(\.errorDescription).allSatisfy { $0.contains("typeMismatch") })
 }
 
 @Test
@@ -111,6 +116,25 @@ func capturePreservesNestedCodingPaths() throws {
     #expect(result.value.profile.nickname == nil)
     #expect(result.report.issues.count == 1)
     #expect(result.report.issues[0].fieldPath == "profile.nickname")
+    #expect(result.report.issues[0].errorDescription.contains("profile.nickname"))
+}
+
+@Test
+func captureComposesWithNestedIssueHandlers() throws {
+    let data = #"{"name":42}"#.data(using: .utf8)!
+    var outerIssues: [SafeDecodingIssue] = []
+
+    let result = try SafeDecodingDiagnostics.withIssueHandler({ outerIssues.append($0) }) {
+        try SafeDecodingDiagnostics.capture {
+            try JSONDecoder().decode(OptionalUser.self, from: data)
+        }
+    }
+
+    #expect(result.value.name == nil)
+    #expect(result.report.issues.count == 1)
+    #expect(result.report.issues[0].fieldPath == "name")
+    #expect(result.report.issues[0].errorDescription.contains("typeMismatch"))
+    #expect(outerIssues == result.report.issues)
 }
 
 @Test
