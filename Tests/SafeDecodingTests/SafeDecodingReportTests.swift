@@ -65,3 +65,20 @@ func captureComposesWithOuterIssueHandler() throws {
     #expect(result.report.issues[0].fieldPath == "name")
     #expect(outerIssues == result.report.issues)
 }
+
+@Test
+func captureRecordsIssuesThroughInnerIssueHandler() throws {
+    let data = #"{"name":42}"#.data(using: .utf8)!
+    var innerIssues: [SafeDecodingIssue] = []
+
+    let result = try SafeDecodingDiagnostics.capture {
+        try SafeDecodingDiagnostics.withIssueHandler({ innerIssues.append($0) }) {
+            try JSONDecoder().decode(OptionalUser.self, from: data)
+        }
+    }
+
+    #expect(result.value.name == nil)
+    #expect(result.report.issues.count == 1)
+    #expect(result.report.issues[0].fieldPath == "name")
+    #expect(innerIssues == result.report.issues)
+}

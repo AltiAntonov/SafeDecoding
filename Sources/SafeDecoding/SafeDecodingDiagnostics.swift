@@ -15,12 +15,25 @@ public enum SafeDecodingDiagnostics {
     public typealias IssueHandler = (SafeDecodingIssue) -> Void
 
     private static let threadDictionaryKey = "SafeDecodingDiagnostics.issueHandler"
+    private static let collectorThreadDictionaryKey = "SafeDecodingDiagnostics.issueCollectors"
 
     private final class IssueHandlerBox {
         let handler: IssueHandler
 
         init(_ handler: @escaping IssueHandler) {
             self.handler = handler
+        }
+    }
+
+    private final class IssueCollectorBox {
+        var issues: [SafeDecodingIssue] = []
+    }
+
+    private final class IssueCollectorStackBox {
+        var collectors: [IssueCollectorBox]
+
+        init(_ collectors: [IssueCollectorBox] = []) {
+            self.collectors = collectors
         }
     }
 
@@ -32,10 +45,15 @@ public enum SafeDecodingDiagnostics {
         Thread.current.threadDictionary[threadDictionaryKey] as? IssueHandlerBox
     }
 
+    private static var issueCollectorStackBox: IssueCollectorStackBox? {
+        Thread.current.threadDictionary[collectorThreadDictionaryKey] as? IssueCollectorStackBox
+    }
+
     /// Emits an issue through the current scoped handler, or the default printer.
     ///
     /// - Parameter issue: The issue to emit.
     public static func emit(_ issue: SafeDecodingIssue) {
+        issueCollectorStackBox?.collectors.forEach { $0.issues.append(issue) }
         issueHandlerBox?.handler(issue) ?? defaultIssueHandler(issue)
     }
 
@@ -77,15 +95,28 @@ public enum SafeDecodingDiagnostics {
     public static func capture<Result>(
         perform operation: () throws -> Result
     ) rethrows -> (value: Result, report: SafeDecodingReport) {
-        var issues: [SafeDecodingIssue] = []
-        let previousHandler = issueHandlerBox?.handler
-        let value = try withIssueHandler({ issue in
-            issues.append(issue)
-            previousHandler?(issue)
-        }) {
-            try operation()
+        let collector = IssueCollectorBox()
+        let threadDictionary = Thread.current.threadDictionary
+        let previousStack = issueCollectorStackBox
+        if let previousStack {
+            previousStack.collectors.append(collector)
+        } else {
+            threadDictionary[collectorThreadDictionaryKey] = IssueCollectorStackBox([collector])
         }
 
-        return (value: value, report: SafeDecodingReport(issues: issues))
+        defer {
+            if let previousStack {
+                precondition(previousStack.collectors.last === collector)
+                previousStack.collectors.removeLast()
+                if previousStack.collectors.isEmpty {
+                    threadDictionary.removeObject(forKey: collectorThreadDictionaryKey as NSString)
+                }
+            } else {
+                threadDictionary.removeObject(forKey: collectorThreadDictionaryKey as NSString)
+            }
+        }
+
+        let value = try operation()
+        return (value: value, report: SafeDecodingReport(issues: collector.issues))
     }
 }
