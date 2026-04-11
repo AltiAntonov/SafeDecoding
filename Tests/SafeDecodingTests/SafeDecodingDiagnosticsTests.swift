@@ -30,6 +30,20 @@ func typeMismatchEmitsDiagnosticWithCodingPath() throws {
 }
 
 @Test
+func withIssueHandlerStillCapturesEmittedIssuesDirectly() throws {
+    let data = #"{"name":42}"#.data(using: .utf8)!
+    var issues: [SafeDecodingIssue] = []
+
+    let user = try SafeDecodingDiagnostics.withIssueHandler({ issues.append($0) }) {
+        try JSONDecoder().decode(User.self, from: data)
+    }
+
+    #expect(user.name == nil)
+    #expect(issues.count == 1)
+    #expect(issues[0].fieldPath == "name")
+}
+
+@Test
 func handlerIsRestoredAfterScopedOverrideReturns() throws {
     let first = SafeDecodingIssue(fieldPath: "first", errorDescription: "first")
     let second = SafeDecodingIssue(fieldPath: "second", errorDescription: "second")
