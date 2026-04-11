@@ -78,7 +78,11 @@ public enum SafeDecodingDiagnostics {
         perform operation: () throws -> Result
     ) rethrows -> (value: Result, report: SafeDecodingReport) {
         var issues: [SafeDecodingIssue] = []
-        let value = try withIssueHandler({ issues.append($0) }) {
+        let previousHandler = issueHandlerBox?.handler
+        let value = try withIssueHandler({ issue in
+            issues.append(issue)
+            previousHandler?(issue)
+        }) {
             try operation()
         }
 
