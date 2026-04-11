@@ -2,8 +2,29 @@ import Foundation
 import Testing
 @testable import SafeDecoding
 
+private enum ReportSuiteUnknownRoleFallback: SafeDecodingFallbackProvider {
+    static let fallbackValue = "Unknown"
+}
+
 private struct OptionalUser: Decodable {
     @SafeDecodable var name: String?
+}
+
+private struct MixedUser: Decodable {
+    @SafeDecodable var name: String?
+    @SafeFallbackDecodable<ReportSuiteUnknownRoleFallback> var role: String
+}
+
+private struct OuterUser: Decodable {
+    let profile: Profile
+
+    struct Profile: Decodable {
+        @SafeDecodable var nickname: String?
+    }
+}
+
+private struct StrictUser: Decodable {
+    let id: Int
 }
 
 @Test
@@ -50,35 +71,38 @@ func captureReturnsReportForBrokenOptionalField() throws {
 }
 
 @Test
-func captureComposesWithOuterIssueHandler() throws {
-    let data = #"{"name":42}"#.data(using: .utf8)!
-    var outerIssues: [SafeDecodingIssue] = []
+func captureReturnsIssuesInEmissionOrderForMixedWrappers() throws {
+    let data = #"{"name":42,"role":42}"#.data(using: .utf8)!
 
-    let result = try SafeDecodingDiagnostics.withIssueHandler({ outerIssues.append($0) }) {
-        try SafeDecodingDiagnostics.capture {
-            try JSONDecoder().decode(OptionalUser.self, from: data)
-        }
+    let result = try SafeDecodingDiagnostics.capture {
+        try JSONDecoder().decode(MixedUser.self, from: data)
     }
 
     #expect(result.value.name == nil)
-    #expect(result.report.issues.count == 1)
-    #expect(result.report.issues[0].fieldPath == "name")
-    #expect(outerIssues == result.report.issues)
+    #expect(result.value.role == "Unknown")
+    #expect(result.report.issues.map(\.fieldPath) == ["name", "role"])
 }
 
 @Test
-func captureRecordsIssuesThroughInnerIssueHandler() throws {
-    let data = #"{"name":42}"#.data(using: .utf8)!
-    var innerIssues: [SafeDecodingIssue] = []
+func capturePreservesNestedCodingPaths() throws {
+    let data = #"{"profile":{"nickname":42}}"#.data(using: .utf8)!
 
     let result = try SafeDecodingDiagnostics.capture {
-        try SafeDecodingDiagnostics.withIssueHandler({ innerIssues.append($0) }) {
-            try JSONDecoder().decode(OptionalUser.self, from: data)
-        }
+        try JSONDecoder().decode(OuterUser.self, from: data)
     }
 
-    #expect(result.value.name == nil)
+    #expect(result.value.profile.nickname == nil)
     #expect(result.report.issues.count == 1)
-    #expect(result.report.issues[0].fieldPath == "name")
-    #expect(innerIssues == result.report.issues)
+    #expect(result.report.issues[0].fieldPath == "profile.nickname")
+}
+
+@Test
+func captureRethrowsTopLevelDecodeFailures() {
+    let data = #"{}"#.data(using: .utf8)!
+
+    #expect(throws: DecodingError.self) {
+        _ = try SafeDecodingDiagnostics.capture {
+            try JSONDecoder().decode(StrictUser.self, from: data)
+        }
+    }
 }
