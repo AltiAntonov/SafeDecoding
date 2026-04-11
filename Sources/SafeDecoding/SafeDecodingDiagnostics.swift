@@ -68,4 +68,20 @@ public enum SafeDecodingDiagnostics {
 
         return try operation()
     }
+
+    /// Runs `operation` while capturing all emitted issues into a report.
+    ///
+    /// - Parameter operation: The operation to run while collecting emitted issues.
+    /// - Returns: The value returned by `operation` and the issues captured during its execution.
+    /// - Throws: Any error thrown by `operation`.
+    public static func capture<Result>(
+        perform operation: () throws -> Result
+    ) rethrows -> (value: Result, report: SafeDecodingReport) {
+        var issues: [SafeDecodingIssue] = []
+        let value = try withIssueHandler({ issues.append($0) }) {
+            try operation()
+        }
+
+        return (value: value, report: SafeDecodingReport(issues: issues))
+    }
 }
