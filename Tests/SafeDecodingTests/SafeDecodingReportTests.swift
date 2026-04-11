@@ -31,6 +31,11 @@ private struct StrictUser: Decodable {
     let id: Int
 }
 
+private struct CompositionSnapshot: Equatable {
+    let innerName: String?
+    let outerRole: String
+}
+
 @Test
 func reportStartsEmptyWhenInitializedWithNoIssues() {
     let report = SafeDecodingReport(issues: [])
@@ -64,36 +69,48 @@ func captureReturnsEmptyReportForCleanPayload() throws {
 @Test
 func captureReturnsReportForBrokenOptionalField() throws {
     let data = #"{"name":42}"#.data(using: .utf8)!
+    let expectedIssue = SafeDecodingIssue(
+        fieldPath: "name",
+        errorDescription: "DecodingError.typeMismatch: expected value of type String. Path: name. Debug description: Expected to decode String but found number instead."
+    )
 
     let result = try SafeDecodingDiagnostics.capture {
         try JSONDecoder().decode(OptionalUser.self, from: data)
     }
 
     #expect(result.value.name == nil)
-    #expect(result.report.issues.count == 1)
-    #expect(result.report.issues[0].fieldPath == "name")
-    #expect(result.report.issues[0].errorDescription.contains("typeMismatch"))
-    #expect(result.report.issues[0].errorDescription.contains("name"))
+    #expect(result.report.issues == [expectedIssue])
 }
 
 @Test
 func captureReturnsOneIssueForBrokenFallbackBackedField() throws {
     let data = #"{"role":42}"#.data(using: .utf8)!
+    let expectedIssue = SafeDecodingIssue(
+        fieldPath: "role",
+        errorDescription: "DecodingError.typeMismatch: expected value of type String. Path: role. Debug description: Expected to decode String but found number instead."
+    )
 
     let result = try SafeDecodingDiagnostics.capture {
         try JSONDecoder().decode(FallbackOnlyUser.self, from: data)
     }
 
     #expect(result.value.role == "Unknown")
-    #expect(result.report.issues.count == 1)
-    #expect(result.report.issues[0].fieldPath == "role")
-    #expect(result.report.issues[0].errorDescription.contains("typeMismatch"))
-    #expect(result.report.issues[0].errorDescription.contains("role"))
+    #expect(result.report.issues == [expectedIssue])
 }
 
 @Test
 func captureReturnsIssuesInEmissionOrderForMixedWrappers() throws {
     let data = #"{"name":42,"role":42}"#.data(using: .utf8)!
+    let expectedIssues = [
+        SafeDecodingIssue(
+            fieldPath: "name",
+            errorDescription: "DecodingError.typeMismatch: expected value of type String. Path: name. Debug description: Expected to decode String but found number instead."
+        ),
+        SafeDecodingIssue(
+            fieldPath: "role",
+            errorDescription: "DecodingError.typeMismatch: expected value of type String. Path: role. Debug description: Expected to decode String but found number instead."
+        )
+    ]
 
     let result = try SafeDecodingDiagnostics.capture {
         try JSONDecoder().decode(MixedUser.self, from: data)
@@ -101,40 +118,57 @@ func captureReturnsIssuesInEmissionOrderForMixedWrappers() throws {
 
     #expect(result.value.name == nil)
     #expect(result.value.role == "Unknown")
-    #expect(result.report.issues.map(\.fieldPath) == ["name", "role"])
-    #expect(result.report.issues.map(\.errorDescription).allSatisfy { $0.contains("typeMismatch") })
+    #expect(result.report.issues == expectedIssues)
 }
 
 @Test
 func capturePreservesNestedCodingPaths() throws {
     let data = #"{"profile":{"nickname":42}}"#.data(using: .utf8)!
+    let expectedIssue = SafeDecodingIssue(
+        fieldPath: "profile.nickname",
+        errorDescription: "DecodingError.typeMismatch: expected value of type String. Path: profile.nickname. Debug description: Expected to decode String but found number instead."
+    )
 
     let result = try SafeDecodingDiagnostics.capture {
         try JSONDecoder().decode(OuterUser.self, from: data)
     }
 
     #expect(result.value.profile.nickname == nil)
-    #expect(result.report.issues.count == 1)
-    #expect(result.report.issues[0].fieldPath == "profile.nickname")
-    #expect(result.report.issues[0].errorDescription.contains("profile.nickname"))
+    #expect(result.report.issues == [expectedIssue])
 }
 
 @Test
 func captureComposesWithNestedIssueHandlers() throws {
-    let data = #"{"name":42}"#.data(using: .utf8)!
+    let innerData = #"{"name":42}"#.data(using: .utf8)!
+    let outerData = #"{"role":42}"#.data(using: .utf8)!
     var outerIssues: [SafeDecodingIssue] = []
+    var innerIssues: [SafeDecodingIssue] = []
 
     let result = try SafeDecodingDiagnostics.withIssueHandler({ outerIssues.append($0) }) {
         try SafeDecodingDiagnostics.capture {
-            try JSONDecoder().decode(OptionalUser.self, from: data)
+            let innerUser = try SafeDecodingDiagnostics.withIssueHandler({ innerIssues.append($0) }) {
+                try JSONDecoder().decode(OptionalUser.self, from: innerData)
+            }
+
+            let outerUser = try JSONDecoder().decode(FallbackOnlyUser.self, from: outerData)
+
+            return CompositionSnapshot(innerName: innerUser.name, outerRole: outerUser.role)
         }
     }
 
-    #expect(result.value.name == nil)
-    #expect(result.report.issues.count == 1)
-    #expect(result.report.issues[0].fieldPath == "name")
-    #expect(result.report.issues[0].errorDescription.contains("typeMismatch"))
-    #expect(outerIssues == result.report.issues)
+    let expectedInnerIssue = SafeDecodingIssue(
+        fieldPath: "name",
+        errorDescription: "DecodingError.typeMismatch: expected value of type String. Path: name. Debug description: Expected to decode String but found number instead."
+    )
+    let expectedOuterIssue = SafeDecodingIssue(
+        fieldPath: "role",
+        errorDescription: "DecodingError.typeMismatch: expected value of type String. Path: role. Debug description: Expected to decode String but found number instead."
+    )
+
+    #expect(result.value == CompositionSnapshot(innerName: nil, outerRole: "Unknown"))
+    #expect(result.report.issues == [expectedInnerIssue, expectedOuterIssue])
+    #expect(innerIssues == [expectedInnerIssue])
+    #expect(outerIssues == [expectedOuterIssue])
 }
 
 @Test
