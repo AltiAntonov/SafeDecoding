@@ -15,6 +15,10 @@ private struct MixedUser: Decodable {
     @SafeFallbackDecodable<ReportSuiteUnknownRoleFallback> var role: String
 }
 
+private struct FallbackOnlyUser: Decodable {
+    @SafeFallbackDecodable<ReportSuiteUnknownRoleFallback> var role: String
+}
+
 private struct OuterUser: Decodable {
     let profile: Profile
 
@@ -68,6 +72,19 @@ func captureReturnsReportForBrokenOptionalField() throws {
     #expect(result.value.name == nil)
     #expect(result.report.issues.count == 1)
     #expect(result.report.issues[0].fieldPath == "name")
+}
+
+@Test
+func captureReturnsOneIssueForBrokenFallbackBackedField() throws {
+    let data = #"{"role":42}"#.data(using: .utf8)!
+
+    let result = try SafeDecodingDiagnostics.capture {
+        try JSONDecoder().decode(FallbackOnlyUser.self, from: data)
+    }
+
+    #expect(result.value.role == "Unknown")
+    #expect(result.report.issues.count == 1)
+    #expect(result.report.issues[0].fieldPath == "role")
 }
 
 @Test
