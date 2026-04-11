@@ -32,31 +32,32 @@
 - missing safe fields decode to `nil`
 - broken safe fields do not fail the whole model
 - broken fallback-backed fields emit placeholder diagnostics and use the provider value
-- placeholder diagnostics for decode issues in `0.1.0` and the unreleased `0.2.0`
+- placeholder diagnostics for decode issues in `0.1.0` and the unreleased `0.3.0`
 
 The current public API is intentionally centered on:
 
 - `SafeDecodable`
 - `SafeDecodingFallbackProvider`
 - `SafeFallbackDecodable`
+- `SafeDecodingReport`
 - `SafeDecodingDiagnostics`
 - `SafeDecodingIssue`
 
 ## Installation
 
-`0.2.0` is not tagged yet. If you want the typed fallback-backed API before release, depend on the release branch:
+`0.3.0` is not tagged yet. If you want the report-capturing API before release, depend on the release branch:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/AltiAntonov/SafeDecoding.git", branch: "release/0.2.0")
+    .package(url: "https://github.com/AltiAntonov/SafeDecoding.git", branch: "release/0.3.0")
 ]
 ```
 
-Once `0.2.0` is tagged, switch back to a versioned dependency:
+Once `0.3.0` is tagged, switch back to a versioned dependency:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/AltiAntonov/SafeDecoding.git", from: "0.2.0")
+    .package(url: "https://github.com/AltiAntonov/SafeDecoding.git", from: "0.3.0")
 ]
 ```
 
@@ -187,18 +188,18 @@ Use `SafeDecoding` when:
 - `@SafeDecodable` is scoped to optional-like wrapped values
 - `@SafeFallbackDecodable` uses the decoded value when decoding succeeds
 - if a fallback-backed field is present but malformed, a placeholder diagnostic is emitted and the provider value is used
-- the `0.2.0` typed fallback API is additive and non-breaking relative to `0.1.0`
+- the `0.3.0` reporting API is additive and non-breaking relative to `0.2.0`
 - missing safe fields decode to `nil`
 - broken safe fields emit a placeholder diagnostic and fall back to `nil`
-- diagnostics are intentionally lightweight in `0.1.0` and the unreleased `0.2.0`
+- diagnostics are intentionally lightweight in `0.1.0` and the unreleased `0.3.0`
 
 ## Documentation
 
-`README.md` is the primary package documentation for the unreleased `0.2.0` branch and remains accurate for `0.1.0` where features overlap.
+`README.md` is the primary package documentation for the unreleased `0.3.0` branch and remains accurate for `0.1.0` and `0.2.0` where features overlap.
 
 Swift Package Index metadata is configured in `.spi.yml` so the package page can reflect the current target and author metadata cleanly.
 
 ## Testing
 
 `0.1.0` ships with Swift Testing coverage for valid values, missing keys, broken values, and diagnostic capture.
-The unreleased `0.2.0` branch extends that coverage to typed fallback-backed decoding behavior.
+`0.2.0` extends that coverage to typed fallback-backed decoding behavior, and the unreleased `0.3.0` branch adds report capture coverage.
