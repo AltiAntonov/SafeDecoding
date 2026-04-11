@@ -102,6 +102,27 @@ For example, this dirty payload still decodes:
 
 `name` falls back to `nil`, while `role` falls back to the typed provider value.
 
+## Reports
+
+Use `SafeDecodingDiagnostics.capture` when you want structured issue inspection instead of relying on the default placeholder print output.
+
+```swift
+let result = try SafeDecodingDiagnostics.capture {
+    try JSONDecoder().decode(User.self, from: data)
+}
+
+let user = result.value
+let report = result.report
+
+if report.hasIssues {
+    for issue in report.issues {
+        print(issue.fieldPath, issue.errorDescription)
+    }
+}
+```
+
+This keeps the decoded model usable while giving the caller explicit access to the recovered-field issues.
+
 ## Typed Fallbacks
 
 Use `SafeDecodingFallbackProvider` when the field is required by your model shape but upstream data is noisy.

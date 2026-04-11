@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.3.0
+
+### Added
+
+- `SafeDecodingReport` for structured access to issues emitted during a scoped decode
+- `SafeDecodingDiagnostics.capture` for capturing decoded values and reports together
+
+### Changed
+
+- docs now show how to inspect `report.issues` instead of relying only on placeholder print output
+
+### Breaking Changes
+
+- None. `0.3.0` is additive and source-compatible with `0.2.0`.
+
 ## 0.2.0
 
 ### Added
