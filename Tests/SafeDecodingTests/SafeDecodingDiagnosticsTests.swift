@@ -16,6 +16,24 @@ private struct MixedWrapperUser: Decodable {
 }
 
 @Test
+func decodingErrorDescriptionUsesStablePackageFormatting() {
+    let context = DecodingError.Context(
+        codingPath: [AnyCodingKey(stringValue: "name")],
+        debugDescription: "Expected to decode String but found number instead."
+    )
+
+    let description = SafeDecodingDiagnostics.description(
+        for: DecodingError.typeMismatch(String.self, context),
+        fallbackPath: "name"
+    )
+
+    #expect(
+        description
+            == "DecodingError.typeMismatch: expected value of type String. Path: name. Debug description: Expected to decode String but found number instead."
+    )
+}
+
+@Test
 func typeMismatchEmitsDiagnosticWithCodingPath() throws {
     let data = #"{"name":42}"#.data(using: .utf8)!
     var issues: [SafeDecodingIssue] = []
@@ -76,4 +94,19 @@ func diagnosticsCaptureOptionalAndFallbackWrapperIssuesPredictably() throws {
     #expect(issues.count == 2)
     #expect(issues.map(\.fieldPath) == ["name", "role"])
     #expect(issues.allSatisfy { $0.errorDescription.contains("typeMismatch") })
+}
+
+private struct AnyCodingKey: CodingKey {
+    let stringValue: String
+    let intValue: Int?
+
+    init(stringValue: String) {
+        self.stringValue = stringValue
+        self.intValue = nil
+    }
+
+    init?(intValue: Int) {
+        self.stringValue = "\(intValue)"
+        self.intValue = intValue
+    }
 }

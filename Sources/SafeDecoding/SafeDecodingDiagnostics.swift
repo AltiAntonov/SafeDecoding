@@ -41,12 +41,64 @@ public enum SafeDecodingDiagnostics {
         print("[SafeDecoding] \(issue.fieldPath): \(issue.errorDescription)")
     }
 
+    static func description(for error: Error, fallbackPath: String) -> String {
+        switch error {
+        case let DecodingError.typeMismatch(type, context):
+            return decodingErrorDescription(
+                kind: "typeMismatch",
+                typeDescription: String(describing: type),
+                context: context,
+                fallbackPath: fallbackPath,
+                valueNotFound: false
+            )
+        case let DecodingError.valueNotFound(type, context):
+            return decodingErrorDescription(
+                kind: "valueNotFound",
+                typeDescription: String(describing: type),
+                context: context,
+                fallbackPath: fallbackPath,
+                valueNotFound: true
+            )
+        case let DecodingError.keyNotFound(key, context):
+            let path = codingPathDescription(from: context.codingPath, fallbackPath: fallbackPath)
+            return "DecodingError.keyNotFound: missing key \(key.stringValue). Path: \(path). Debug description: \(context.debugDescription)"
+        case let DecodingError.dataCorrupted(context):
+            let path = codingPathDescription(from: context.codingPath, fallbackPath: fallbackPath)
+            return "DecodingError.dataCorrupted: Path: \(path). Debug description: \(context.debugDescription)"
+        default:
+            return String(describing: error)
+        }
+    }
+
     private static var issueHandlerBox: IssueHandlerBox? {
         Thread.current.threadDictionary[threadDictionaryKey] as? IssueHandlerBox
     }
 
     private static var issueCollectorStackBox: IssueCollectorStackBox? {
         Thread.current.threadDictionary[collectorThreadDictionaryKey] as? IssueCollectorStackBox
+    }
+
+    private static func decodingErrorDescription(
+        kind: String,
+        typeDescription: String,
+        context: DecodingError.Context,
+        fallbackPath: String,
+        valueNotFound: Bool
+    ) -> String {
+        let path = codingPathDescription(from: context.codingPath, fallbackPath: fallbackPath)
+        let expectation = valueNotFound
+            ? "Expected value of type \(typeDescription) but found null instead."
+            : "expected value of type \(typeDescription)."
+
+        return "DecodingError.\(kind): \(expectation) Path: \(path). Debug description: \(context.debugDescription)"
+    }
+
+    private static func codingPathDescription(
+        from codingPath: [CodingKey],
+        fallbackPath: String
+    ) -> String {
+        let path = codingPath.map(\.stringValue).joined(separator: ".")
+        return path.isEmpty ? fallbackPath : path
     }
 
     /// Emits an issue through the current scoped handler, or the default printer.

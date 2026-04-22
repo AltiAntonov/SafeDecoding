@@ -37,7 +37,10 @@ extension SafeDecodable: Decodable where Value: ExpressibleByNilLiteral {
             SafeDecodingDiagnostics.emit(
                 SafeDecodingIssue(
                     fieldPath: fieldPath.isEmpty ? "<root>" : fieldPath,
-                    errorDescription: String(describing: error)
+                    errorDescription: SafeDecodingDiagnostics.description(
+                        for: error,
+                        fallbackPath: fieldPath.isEmpty ? "<root>" : fieldPath
+                    )
                 )
             )
 
