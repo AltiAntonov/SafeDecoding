@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.4.0
+
+### Added
+
+- `SafeJSONDecoder` as the first app-level safe JSON decoding entry point
+- support for injecting a configured `JSONDecoder` into `SafeJSONDecoder`
+
+### Changed
+
+- README now presents `SafeJSONDecoder` as the recommended app-level API and `SafeDecodingDiagnostics.capture` as the lower-level reporting API
+
+### Breaking Changes
+
+- None. `0.4.0` is source-compatible with `0.3.1`.
+
 ## 0.3.1
 
 ### Fixed

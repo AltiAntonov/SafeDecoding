@@ -29,6 +29,7 @@
 - `@SafeDecodable` for optional field failure isolation
 - `SafeDecodingFallbackProvider` for typed fallback values on required fields
 - `@SafeFallbackDecodable` for fallback-backed required-value decoding
+- `SafeJSONDecoder` for app-level JSON decode plus report capture
 - missing safe fields decode to `nil`
 - broken safe fields do not fail the whole model
 - broken fallback-backed fields emit placeholder diagnostics and use the provider value
@@ -39,6 +40,7 @@ The current public API is intentionally centered on:
 - `SafeDecodable`
 - `SafeDecodingFallbackProvider`
 - `SafeFallbackDecodable`
+- `SafeJSONDecoder`
 - `SafeDecodingReport`
 - `SafeDecodingDiagnostics`
 - `SafeDecodingIssue`
@@ -47,7 +49,7 @@ The current public API is intentionally centered on:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/AltiAntonov/SafeDecoding.git", from: "0.3.1")
+    .package(url: "https://github.com/AltiAntonov/SafeDecoding.git", from: "0.4.0")
 ]
 ```
 
@@ -93,9 +95,32 @@ For example, this dirty payload still decodes:
 
 `name` falls back to `nil`, while `role` falls back to the typed provider value.
 
+## Safe JSON Decoder
+
+Use `SafeJSONDecoder` as the app-level entry point when you want the decoded value and a structured report in one call.
+
+```swift
+let result = try SafeJSONDecoder().decode(User.self, from: data)
+
+let user = result.value
+let report = result.report
+```
+
+`SafeJSONDecoder` is a convenience wrapper around `JSONDecoder` and `SafeDecodingDiagnostics.capture`. It does not implement a custom decoder and it does not reconstruct partial models when standard `Decodable` initialization fails.
+
+You can inject a configured `JSONDecoder`:
+
+```swift
+let decoder = JSONDecoder()
+decoder.keyDecodingStrategy = .convertFromSnakeCase
+
+let safeDecoder = SafeJSONDecoder(jsonDecoder: decoder)
+let result = try safeDecoder.decode(User.self, from: data)
+```
+
 ## Reports
 
-Use `SafeDecodingDiagnostics.capture` when you want structured issue inspection instead of relying on the default placeholder print output.
+Use `SafeDecodingDiagnostics.capture` when you want structured issue inspection around an existing decode call. `SafeJSONDecoder` is the higher-level convenience wrapper for app code that wants the same report alongside the decoded value.
 
 ```swift
 let result = try SafeDecodingDiagnostics.capture {
