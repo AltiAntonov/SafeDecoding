@@ -80,8 +80,18 @@ func safeJSONDecoderCapturesMixedWrapperIssuesInEmissionOrder() throws {
 func safeJSONDecoderRethrowsTopLevelDecodeFailures() {
     let data = #"{}"#.data(using: .utf8)!
 
-    #expect(throws: DecodingError.self) {
+    do {
         _ = try SafeJSONDecoder().decode(StrictUser.self, from: data)
+        Issue.record("Expected top-level decode to throw")
+    } catch let error as DecodingError {
+        guard case let .keyNotFound(codingKey, _) = error else {
+            Issue.record("Expected keyNotFound, got \(error)")
+            return
+        }
+
+        #expect(codingKey.stringValue == "id")
+    } catch {
+        Issue.record("Expected DecodingError, got \(error)")
     }
 }
 
