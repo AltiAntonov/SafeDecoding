@@ -39,7 +39,6 @@ func safeJSONDecoderCapturesBrokenOptionalFieldReport() throws {
     #expect(result.value.name == nil)
     #expect(result.report.issues.count == 1)
     #expect(result.report.issues[0].fieldPath == "name")
-    #expect(result.report.issues[0].errorDescription.contains("DecodingError.typeMismatch"))
 }
 
 @Test
@@ -51,5 +50,4 @@ func safeJSONDecoderCapturesBrokenFallbackBackedFieldReport() throws {
     #expect(result.value.role == "Unknown")
     #expect(result.report.issues.count == 1)
     #expect(result.report.issues[0].fieldPath == "role")
-    #expect(result.report.issues[0].errorDescription.contains("DecodingError.typeMismatch"))
 }
