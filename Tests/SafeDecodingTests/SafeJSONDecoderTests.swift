@@ -19,6 +19,19 @@ private struct FallbackOnlyUser: Decodable {
     @SafeFallbackDecodable<DecoderSuiteUnknownRoleFallback> var role: String
 }
 
+private struct MixedUser: Decodable {
+    @SafeDecodable var name: String?
+    @SafeFallbackDecodable<DecoderSuiteUnknownRoleFallback> var role: String
+}
+
+private struct StrictUser: Decodable {
+    let id: Int
+}
+
+private struct SnakeCaseUser: Decodable, Equatable {
+    let displayName: String
+}
+
 @Test
 func safeJSONDecoderReturnsDecodedValueAndEmptyReportForCleanPayload() throws {
     let data = #"{"id":1,"name":"Ava"}"#.data(using: .utf8)!
@@ -50,4 +63,36 @@ func safeJSONDecoderCapturesBrokenFallbackBackedFieldReport() throws {
     #expect(result.value.role == "Unknown")
     #expect(result.report.issues.count == 1)
     #expect(result.report.issues[0].fieldPath == "role")
+}
+
+@Test
+func safeJSONDecoderCapturesMixedWrapperIssuesInEmissionOrder() throws {
+    let data = #"{"name":42,"role":42}"#.data(using: .utf8)!
+
+    let result = try SafeJSONDecoder().decode(MixedUser.self, from: data)
+
+    #expect(result.value.name == nil)
+    #expect(result.value.role == "Unknown")
+    #expect(result.report.issues.map(\.fieldPath) == ["name", "role"])
+}
+
+@Test
+func safeJSONDecoderRethrowsTopLevelDecodeFailures() {
+    let data = #"{}"#.data(using: .utf8)!
+
+    #expect(throws: DecodingError.self) {
+        _ = try SafeJSONDecoder().decode(StrictUser.self, from: data)
+    }
+}
+
+@Test
+func safeJSONDecoderRespectsInjectedKeyDecodingStrategy() throws {
+    let data = #"{"display_name":"Ava Stone"}"#.data(using: .utf8)!
+    let jsonDecoder = JSONDecoder()
+    jsonDecoder.keyDecodingStrategy = .convertFromSnakeCase
+
+    let result = try SafeJSONDecoder(jsonDecoder: jsonDecoder).decode(SnakeCaseUser.self, from: data)
+
+    #expect(result.value == SnakeCaseUser(displayName: "Ava Stone"))
+    #expect(result.report.issues.isEmpty)
 }
