@@ -96,6 +96,26 @@ func safeJSONDecoderRethrowsTopLevelDecodeFailures() {
 }
 
 @Test
+func safeJSONDecoderRethrowsStrictModelTypeMismatches() {
+    let data = #"{"id":1,"name":42}"#.data(using: .utf8)!
+
+    do {
+        _ = try SafeJSONDecoder().decode(CleanUser.self, from: data)
+        Issue.record("Expected strict model decode to throw")
+    } catch let error as DecodingError {
+        guard case let .typeMismatch(type, context) = error else {
+            Issue.record("Expected typeMismatch, got \(error)")
+            return
+        }
+
+        #expect(String(describing: type) == "String")
+        #expect(context.codingPath.map(\.stringValue) == ["name"])
+    } catch {
+        Issue.record("Expected DecodingError, got \(error)")
+    }
+}
+
+@Test
 func safeJSONDecoderRespectsInjectedKeyDecodingStrategy() throws {
     let data = #"{"display_name":"Ava Stone"}"#.data(using: .utf8)!
     let jsonDecoder = JSONDecoder()
