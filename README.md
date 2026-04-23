@@ -47,7 +47,7 @@ The current public API is intentionally centered on:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/AltiAntonov/SafeDecoding.git", from: "0.3.0")
+    .package(url: "https://github.com/AltiAntonov/SafeDecoding.git", from: "0.3.1")
 ]
 ```
 

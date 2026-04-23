@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.3.1
+
+### Fixed
+
+- stabilized safe decoding issue descriptions across platforms by avoiding platform-dependent `DecodingError` stringification
+- fixed GitHub CI failures in report tests caused by macOS and Linux formatting `DecodingError` differently
+
+### Breaking Changes
+
+- None. `0.3.1` is source-compatible with `0.3.0`.
+
 ## 0.3.0
 
 ### Added
