@@ -49,7 +49,7 @@ The current public API is intentionally centered on:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/AltiAntonov/SafeDecoding.git", from: "0.4.0")
+    .package(url: "https://github.com/AltiAntonov/SafeDecoding.git", from: "0.5.0")
 ]
 ```
 
@@ -94,6 +94,68 @@ For example, this dirty payload still decodes:
 ```
 
 `name` falls back to `nil`, while `role` falls back to the typed provider value.
+
+## Nested Models
+
+Nested wrapped fields recover the same way as top-level wrapped fields.
+
+```swift
+import SafeDecoding
+
+enum UnknownRoleFallback: SafeDecodingFallbackProvider {
+    static let fallbackValue = "unknown"
+}
+
+enum Visibility: String, Decodable {
+    case `public`
+    case `private`
+}
+
+struct Profile: Decodable {
+    @SafeDecodable var name: String?
+    @SafeFallbackDecodable<UnknownRoleFallback> var role: String
+}
+
+struct Preferences: Decodable {
+    @SafeDecodable var visibility: Visibility?
+}
+
+struct User: Decodable {
+    let id: Int
+    let profile: Profile
+    let preferences: Preferences
+}
+```
+
+Dirty nested payload:
+
+```json
+{
+  "id": 7,
+  "profile": {
+    "name": 404,
+    "role": 42
+  },
+  "preferences": {
+    "visibility": "friends-only"
+  }
+}
+```
+
+Safe decode plus report:
+
+```swift
+let result = try SafeJSONDecoder().decode(User.self, from: data)
+
+result.value.profile.name // nil
+result.value.profile.role // "unknown"
+result.value.preferences.visibility // nil
+
+result.report.issues.map(\.fieldPath)
+// ["profile.name", "profile.role", "preferences.visibility"]
+```
+
+Strict nested fields are still strict. If a nested property is not wrapped and its decode fails, `SafeJSONDecoder` rethrows the underlying `DecodingError` instead of reconstructing a partial model.
 
 ## Safe JSON Decoder
 
@@ -206,7 +268,9 @@ Use `SafeDecoding` when:
 - the `0.3.0` reporting API is additive and non-breaking relative to `0.2.0`, and `0.3.1` keeps that surface stable
 - missing safe fields decode to `nil`
 - broken safe fields emit a placeholder diagnostic and fall back to `nil`
-- diagnostics are intentionally lightweight in `0.1.0` through `0.3.1`
+- nested wrapped fields recover and report full dot paths such as `profile.name`
+- nested strict fields still fail normal decoding
+- diagnostics are intentionally lightweight; structured reports expose recoverable issues without changing strict `Decodable` failure boundaries
 
 ## Documentation
 
@@ -217,4 +281,4 @@ Swift Package Index metadata is configured in `.spi.yml` so the package page can
 ## Testing
 
 `0.1.0` ships with Swift Testing coverage for valid values, missing keys, broken values, and diagnostic capture.
-`0.2.0` extends that coverage to typed fallback-backed decoding behavior, and `0.3.0` adds report capture coverage that `0.3.1` keeps stable.
+`0.2.0` extends that coverage to typed fallback-backed decoding behavior, `0.3.0` adds report capture coverage that `0.3.1` keeps stable, `0.4.0` covers the `SafeJSONDecoder` entry point, and `0.5.0` adds nested wrapper and nested report-path regression coverage.
