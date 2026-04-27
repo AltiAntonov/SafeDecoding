@@ -15,6 +15,25 @@ private struct MixedWrapperUser: Decodable {
     @SafeFallbackDecodable<DiagnosticsSuiteUnknownRoleFallback> var role: String
 }
 
+private enum Visibility: String, Decodable {
+    case `public`
+    case `private`
+}
+
+private struct NestedProfile: Decodable {
+    @SafeDecodable var name: String?
+    @SafeFallbackDecodable<DiagnosticsSuiteUnknownRoleFallback> var role: String
+}
+
+private struct NestedPreferences: Decodable {
+    @SafeDecodable var visibility: Visibility?
+}
+
+private struct NestedWrapperUser: Decodable {
+    let profile: NestedProfile
+    let preferences: NestedPreferences
+}
+
 @Test
 func decodingErrorDescriptionUsesStablePackageFormatting() {
     let context = DecodingError.Context(
@@ -94,6 +113,35 @@ func diagnosticsCaptureOptionalAndFallbackWrapperIssuesPredictably() throws {
     #expect(issues.count == 2)
     #expect(issues.map(\.fieldPath) == ["name", "role"])
     #expect(issues.allSatisfy { $0.errorDescription.contains("typeMismatch") })
+}
+
+@Test
+func diagnosticsCaptureNestedWrapperIssuesWithFullPaths() throws {
+    let data = #"{"profile":{"name":42,"role":42},"preferences":{}}"#.data(using: .utf8)!
+    var issues: [SafeDecodingIssue] = []
+
+    let user = try SafeDecodingDiagnostics.withIssueHandler({ issues.append($0) }) {
+        try JSONDecoder().decode(NestedWrapperUser.self, from: data)
+    }
+
+    #expect(user.profile.name == nil)
+    #expect(user.profile.role == "Unknown")
+    #expect(issues.map(\.fieldPath) == ["profile.name", "profile.role"])
+}
+
+@Test
+func diagnosticsCaptureNestedMixedIssuesInEmissionOrder() throws {
+    let data = #"{"profile":{"name":42,"role":42},"preferences":{"visibility":"friends-only"}}"#.data(using: .utf8)!
+    var issues: [SafeDecodingIssue] = []
+
+    let user = try SafeDecodingDiagnostics.withIssueHandler({ issues.append($0) }) {
+        try JSONDecoder().decode(NestedWrapperUser.self, from: data)
+    }
+
+    #expect(user.profile.name == nil)
+    #expect(user.profile.role == "Unknown")
+    #expect(user.preferences.visibility == nil)
+    #expect(issues.map(\.fieldPath) == ["profile.name", "profile.role", "preferences.visibility"])
 }
 
 private struct AnyCodingKey: CodingKey {
