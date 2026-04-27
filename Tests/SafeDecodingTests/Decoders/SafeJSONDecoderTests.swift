@@ -11,6 +11,11 @@ private enum DecoderSuiteUnknownRoleFallback: SafeDecodingFallbackProvider {
     static let fallbackValue = "Unknown"
 }
 
+private enum Visibility: String, Decodable {
+    case `public`
+    case `private`
+}
+
 private struct OptionalUser: Decodable {
     @SafeDecodable var name: String?
 }
@@ -30,6 +35,29 @@ private struct StrictUser: Decodable {
 
 private struct SnakeCaseUser: Decodable, Equatable {
     let displayName: String
+}
+
+private struct NestedProfile: Decodable {
+    @SafeDecodable var name: String?
+    @SafeFallbackDecodable<DecoderSuiteUnknownRoleFallback> var role: String
+}
+
+private struct NestedPreferences: Decodable {
+    @SafeDecodable var visibility: Visibility?
+}
+
+private struct NestedUser: Decodable {
+    let id: Int
+    let profile: NestedProfile
+    let preferences: NestedPreferences
+}
+
+private struct StrictProfile: Decodable {
+    let name: String
+}
+
+private struct StrictNestedUser: Decodable {
+    let profile: StrictProfile
 }
 
 @Test
@@ -125,4 +153,37 @@ func safeJSONDecoderRespectsInjectedKeyDecodingStrategy() throws {
 
     #expect(result.value == SnakeCaseUser(displayName: "Ava Stone"))
     #expect(result.report.issues.isEmpty)
+}
+
+@Test
+func safeJSONDecoderCapturesNestedWrapperIssuesWithFullPaths() throws {
+    let data = #"{"id":1,"profile":{"name":42,"role":42},"preferences":{"visibility":"friends-only"}}"#.data(using: .utf8)!
+
+    let result = try SafeJSONDecoder().decode(NestedUser.self, from: data)
+
+    #expect(result.value.id == 1)
+    #expect(result.value.profile.name == nil)
+    #expect(result.value.profile.role == "Unknown")
+    #expect(result.value.preferences.visibility == nil)
+    #expect(result.report.issues.map(\.fieldPath) == ["profile.name", "profile.role", "preferences.visibility"])
+}
+
+@Test
+func safeJSONDecoderRethrowsStrictNestedTypeMismatches() {
+    let data = #"{"profile":{"name":42}}"#.data(using: .utf8)!
+
+    do {
+        _ = try SafeJSONDecoder().decode(StrictNestedUser.self, from: data)
+        Issue.record("Expected strict nested decode to throw")
+    } catch let error as DecodingError {
+        guard case let .typeMismatch(type, context) = error else {
+            Issue.record("Expected typeMismatch, got \(error)")
+            return
+        }
+
+        #expect(String(describing: type) == "String")
+        #expect(context.codingPath.map(\.stringValue) == ["profile", "name"])
+    } catch {
+        Issue.record("Expected DecodingError, got \(error)")
+    }
 }
