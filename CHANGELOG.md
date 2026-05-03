@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.5.0
+
+### Added
+
+- nested Swift Testing coverage for `@SafeDecodable` and `@SafeFallbackDecodable`, including wrapped enum mismatches inside child models
+- nested `SafeJSONDecoder` coverage for full report paths and strict nested failure boundaries
+
+### Changed
+
+- README now documents nested wrapped-field recovery and makes the wrapped-vs-strict nested decode boundary explicit
+- diagnostics and report-path behavior are now regression-tested for nested payload drift scenarios
+
+### Breaking Changes
+
+- None. `0.5.0` is source-compatible with `0.4.0`.
+
 ## 0.4.0
 
 ### Added
