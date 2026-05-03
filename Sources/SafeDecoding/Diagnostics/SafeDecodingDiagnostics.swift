@@ -97,8 +97,27 @@ public enum SafeDecodingDiagnostics {
         from codingPath: [CodingKey],
         fallbackPath: String
     ) -> String {
-        let path = codingPath.map(\.stringValue).joined(separator: ".")
+        let path = codingPath.map(pathComponentDescription(for:)).joined(separator: ".")
         return path.isEmpty ? fallbackPath : path
+    }
+
+    static func normalizedFieldPath(
+        from codingPath: [CodingKey],
+        fallbackPath: String
+    ) -> String {
+        codingPathDescription(from: codingPath, fallbackPath: fallbackPath)
+    }
+
+    private static func pathComponentDescription(for codingKey: CodingKey) -> String {
+        if let intValue = codingKey.intValue {
+            return String(intValue)
+        }
+
+        if codingKey.stringValue.hasPrefix("Index ") {
+            return String(codingKey.stringValue.dropFirst("Index ".count))
+        }
+
+        return codingKey.stringValue
     }
 
     /// Emits an issue through the current scoped handler, or the default printer.

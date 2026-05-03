@@ -60,6 +60,19 @@ private struct StrictNestedUser: Decodable {
     let profile: StrictProfile
 }
 
+private struct LossyArrayUser: Decodable, Equatable {
+    let id: Int
+    let name: String
+}
+
+private struct LossyArrayResponse: Decodable {
+    @LossySafeDecodable var users: [LossyArrayUser]
+}
+
+private struct StrictArrayResponse: Decodable {
+    let users: [LossyArrayUser]
+}
+
 @Test
 func safeJSONDecoderReturnsDecodedValueAndEmptyReportForCleanPayload() throws {
     let data = #"{"id":1,"name":"Ava"}"#.data(using: .utf8)!
@@ -183,6 +196,39 @@ func safeJSONDecoderRethrowsStrictNestedTypeMismatches() {
 
         #expect(String(describing: type) == "String")
         #expect(context.codingPath.map(\.stringValue) == ["profile", "name"])
+    } catch {
+        Issue.record("Expected DecodingError, got \(error)")
+    }
+}
+
+@Test
+func safeJSONDecoderCapturesLossyArrayIssuesAndPreservesValidElements() throws {
+    let data = #"{"users":[{"id":1,"name":"Ava"},{"id":"oops","name":"Broken"},{"id":2,"name":"Noah"}]}"#.data(using: .utf8)!
+
+    let result = try SafeJSONDecoder().decode(LossyArrayResponse.self, from: data)
+
+    #expect(result.value.users == [
+        LossyArrayUser(id: 1, name: "Ava"),
+        LossyArrayUser(id: 2, name: "Noah")
+    ])
+    #expect(result.report.issues.map(\.fieldPath) == ["users.1.id"])
+}
+
+@Test
+func safeJSONDecoderKeepsStrictArraysStrict() {
+    let data = #"{"users":[{"id":1,"name":"Ava"},{"id":"oops","name":"Broken"}]}"#.data(using: .utf8)!
+
+    do {
+        _ = try SafeJSONDecoder().decode(StrictArrayResponse.self, from: data)
+        Issue.record("Expected strict array decode to throw")
+    } catch let error as DecodingError {
+        guard case let .typeMismatch(type, context) = error else {
+            Issue.record("Expected typeMismatch, got \(error)")
+            return
+        }
+
+        #expect(String(describing: type) == "Int")
+        #expect(context.codingPath.map(\.stringValue) == ["users", "Index 1", "id"])
     } catch {
         Issue.record("Expected DecodingError, got \(error)")
     }

@@ -38,6 +38,7 @@
 The current public API is intentionally centered on:
 
 - `SafeDecodable`
+- `LossySafeDecodable`
 - `SafeDecodingFallbackProvider`
 - `SafeFallbackDecodable`
 - `SafeJSONDecoder`
@@ -49,7 +50,7 @@ The current public API is intentionally centered on:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/AltiAntonov/SafeDecoding.git", from: "0.5.0")
+    .package(url: "https://github.com/AltiAntonov/SafeDecoding.git", from: "0.6.0")
 ]
 ```
 
@@ -157,6 +158,49 @@ result.report.issues.map(\.fieldPath)
 
 Strict nested fields are still strict. If a nested property is not wrapped and its decode fails, `SafeJSONDecoder` rethrows the underlying `DecodingError` instead of reconstructing a partial model.
 
+## Lossy Arrays
+
+Use `@LossySafeDecodable` when one specific array field should preserve valid elements instead of failing the whole payload because one entry is malformed.
+
+```swift
+import SafeDecoding
+
+struct User: Decodable {
+    let id: Int
+    let name: String
+}
+
+struct Response: Decodable {
+    @LossySafeDecodable var users: [User]
+}
+```
+
+Dirty list payload:
+
+```json
+{
+  "users": [
+    { "id": 1, "name": "Ava" },
+    { "id": "oops", "name": "Broken" },
+    { "id": 2, "name": "Noah" }
+  ]
+}
+```
+
+Safe decode plus report:
+
+```swift
+let result = try SafeJSONDecoder().decode(Response.self, from: data)
+
+result.value.users
+// [User(id: 1, name: "Ava"), User(id: 2, name: "Noah")]
+
+result.report.issues.map(\.fieldPath)
+// ["users.1.id"]
+```
+
+`@LossySafeDecodable` is field-scoped and opt-in. Plain `[User]` remains strict and still throws if any element is malformed.
+
 ## Safe JSON Decoder
 
 Use `SafeJSONDecoder` as the app-level entry point when you want the decoded value and a structured report in one call.
@@ -263,12 +307,16 @@ Use `SafeDecoding` when:
 ## Runtime Semantics
 
 - `@SafeDecodable` is scoped to optional-like wrapped values
+- `@LossySafeDecodable` is scoped to array fields and skips malformed elements
 - `@SafeFallbackDecodable` uses the decoded value when decoding succeeds
 - if a fallback-backed field is present but malformed, a placeholder diagnostic is emitted and the provider value is used
 - the `0.3.0` reporting API is additive and non-breaking relative to `0.2.0`, and `0.3.1` keeps that surface stable
 - missing safe fields decode to `nil`
 - broken safe fields emit a placeholder diagnostic and fall back to `nil`
 - nested wrapped fields recover and report full dot paths such as `profile.name`
+- lossy array issues report indexed paths such as `users.1.id`
+- missing lossy array fields recover to `[]`
+- non-array values on lossy array fields recover to `[]` with one field-level issue
 - nested strict fields still fail normal decoding
 - diagnostics are intentionally lightweight; structured reports expose recoverable issues without changing strict `Decodable` failure boundaries
 
@@ -281,4 +329,4 @@ Swift Package Index metadata is configured in `.spi.yml` so the package page can
 ## Testing
 
 `0.1.0` ships with Swift Testing coverage for valid values, missing keys, broken values, and diagnostic capture.
-`0.2.0` extends that coverage to typed fallback-backed decoding behavior, `0.3.0` adds report capture coverage that `0.3.1` keeps stable, `0.4.0` covers the `SafeJSONDecoder` entry point, and `0.5.0` adds nested wrapper and nested report-path regression coverage.
+`0.2.0` extends that coverage to typed fallback-backed decoding behavior, `0.3.0` adds report capture coverage that `0.3.1` keeps stable, `0.4.0` covers the `SafeJSONDecoder` entry point, `0.5.0` adds nested wrapper and nested report-path regression coverage, and `0.6.0` adds lossy array recovery and indexed issue-path coverage.

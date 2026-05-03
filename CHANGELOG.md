@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.6.0
+
+### Added
+
+- `@LossySafeDecodable` for opt-in lossy array decoding on specific model fields
+- indexed issue reporting for skipped array elements, including paths such as `users.1.id`
+- `SafeJSONDecoder` coverage for lossy-array report capture and strict-array control behavior
+
+### Changed
+
+- README now documents lossy array decoding and makes the strict-array boundary explicit
+- collection recovery is now field-scoped and observable through `SafeDecodingReport`
+
+### Breaking Changes
+
+- None. `0.6.0` is source-compatible with `0.5.0`.
+
 ## 0.5.0
 
 ### Added
