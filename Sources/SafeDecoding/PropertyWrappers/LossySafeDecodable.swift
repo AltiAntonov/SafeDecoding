@@ -9,7 +9,7 @@
 
 import Foundation
 
-/// A property wrapper that will decode arrays with element-level recovery.
+/// A property wrapper that decodes arrays with element-level recovery.
 @propertyWrapper
 public struct LossySafeDecodable<Element: Decodable> {
     /// The decoded array value.
@@ -23,6 +23,8 @@ public struct LossySafeDecodable<Element: Decodable> {
     }
 
     /// Creates a wrapper initialized to an empty array.
+    ///
+    /// Missing lossy array fields and unrecoverable field-level array failures both fall back to `[]`.
     public init() {
         self.wrappedValue = []
     }

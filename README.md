@@ -27,6 +27,7 @@
 ## Features
 
 - `@SafeDecodable` for optional field failure isolation
+- `@LossySafeDecodable` for opt-in lossy array recovery
 - `SafeDecodingFallbackProvider` for typed fallback values on required fields
 - `@SafeFallbackDecodable` for fallback-backed required-value decoding
 - `SafeJSONDecoder` for app-level JSON decode plus report capture
@@ -95,6 +96,23 @@ For example, this dirty payload still decodes:
 ```
 
 `name` falls back to `nil`, while `role` falls back to the typed provider value.
+
+## Choosing The API
+
+Use the wrapper that matches the recovery boundary you actually want:
+
+- `@SafeDecodable`
+  Use when one optional-like value may be missing or malformed, and `nil` is the correct recovery.
+- `@SafeFallbackDecodable`
+  Use when one required value must stay usable, and you want a typed fallback such as `"unknown"`, `"ZZ"`, or an enum case.
+- `@LossySafeDecodable`
+  Use when one array field should preserve valid elements and skip malformed ones.
+- `SafeJSONDecoder`
+  Use when you want the decoded value and `SafeDecodingReport` in one call.
+- Strict decoding
+  Use plain values and plain arrays when malformed data should still fail the decode.
+
+This is the intended `1.0` mental model: wrappers mark recovery boundaries explicitly in the model, while unwrapped values remain strict.
 
 ## Nested Models
 
@@ -200,6 +218,8 @@ result.report.issues.map(\.fieldPath)
 ```
 
 `@LossySafeDecodable` is field-scoped and opt-in. Plain `[User]` remains strict and still throws if any element is malformed.
+
+`SafeDecodingIssue.fieldPath` is intended to stay stable for adopters: object keys are dot-joined, and array elements use numeric indexes such as `users.1.id`.
 
 ## Safe JSON Decoder
 
@@ -319,6 +339,10 @@ Use `SafeDecoding` when:
 - non-array values on lossy array fields recover to `[]` with one field-level issue
 - nested strict fields still fail normal decoding
 - diagnostics are intentionally lightweight; structured reports expose recoverable issues without changing strict `Decodable` failure boundaries
+
+## Stabilization Notes
+
+`0.7.0` is the pre-`1.0` stabilization release. The package surface is now intended to be reviewed for long-term coherence rather than expanded with another major recovery primitive.
 
 ## Documentation
 

@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.7.0
+
+### Added
+
+- clearer wrapper-selection guidance in the README, including when to stay strict
+- explicit documentation of stable `fieldPath` formatting expectations for object keys and array indexes
+
+### Changed
+
+- public documentation and doc comments now frame `0.7.0` as the pre-`1.0` stabilization release
+- wrapper and report guidance is now aligned around explicit recovery boundaries rather than feature-by-feature discovery
+
+### Breaking Changes
+
+- None. `0.7.0` is a stabilization release and is source-compatible with `0.6.0`.
+
 ## 0.6.0
 
 ### Added

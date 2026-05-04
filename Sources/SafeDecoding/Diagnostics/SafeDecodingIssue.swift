@@ -11,7 +11,9 @@ import Foundation
 
 /// A lightweight description of a field-level decoding recovery.
 public struct SafeDecodingIssue: Sendable, Equatable {
-    /// The dotted coding path for the field that failed to decode.
+    /// The stable field path for the recovery site.
+    ///
+    /// Paths use dotted keys, and arrays use numeric indexes such as `users.1.id`.
     public let fieldPath: String
 
     /// A textual description of the underlying decode error.
@@ -20,7 +22,7 @@ public struct SafeDecodingIssue: Sendable, Equatable {
     /// Creates a new decoding issue payload.
     ///
     /// - Parameters:
-    ///   - fieldPath: The dotted coding path for the field that failed to decode.
+    ///   - fieldPath: The stable field path for the recovery site.
     ///   - errorDescription: A textual description of the underlying decode error.
     public init(fieldPath: String, errorDescription: String) {
         self.fieldPath = fieldPath
